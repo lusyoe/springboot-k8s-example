@@ -23,7 +23,12 @@ podTemplate(label: label, cloud: 'kubernetes', containers: [
                     hostPathVolume(hostPath: '/var/run/docker.sock', mountPath: '/var/run/docker.sock'),
                     hostPathVolume(hostPath: '/root/.kube', mountPath: '/root/.kube'),
                     hostPathVolume(hostPath: '/root/.m2', mountPath: '/root/.m2')
-                    ]) {
+            ],
+            annotations: [
+                    podAnnotation(key: "sidecar.istio.io/inject", value: "false")
+            ]
+
+) {
 
     node(label) {
 
