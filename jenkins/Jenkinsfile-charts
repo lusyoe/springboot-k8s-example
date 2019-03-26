@@ -14,7 +14,7 @@ properties(projectProperties)
 def label = "mypod-${UUID.randomUUID().toString()}"
 
 podTemplate(label: label, cloud: 'kubernetes', containers: [
-            containerTemplate(name: 'maven', image: 'maven:3-jdk-8-alpine', command: 'cat', ttyEnabled: true),
+            containerTemplate(name: 'maven', image: 'maven:3.6.0-jdk-8', command: 'cat', ttyEnabled: true),
             containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true),
             containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:v2.9.1', command: 'cat', ttyEnabled: true, envVars: [
                 envVar(key: 'KUBECONFIG', value: '/root/.kube/config')])
