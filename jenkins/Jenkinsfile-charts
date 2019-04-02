@@ -72,6 +72,10 @@ podTemplate(label: label, cloud: 'kubernetes', containers: [
             stage('docker-push') {
                 sh "docker push ${params.REGISTRY_URL}/lusyoe/k8s-example:${shortGitCommit}"
             }
+
+            stage('docker-remove') {
+                sh "docker rmi ${params.REGISTRY_URL}/lusyoe/k8s-example:${shortGitCommit}"
+            }
         }
 
 
