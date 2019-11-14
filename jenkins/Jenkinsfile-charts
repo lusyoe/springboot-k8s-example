@@ -11,10 +11,8 @@ def projectProperties = [
 
 properties(projectProperties)
 
-def label = "mypod-${UUID.randomUUID().toString()}"
-
 // 继承default模板，可自定义slave镜像等配置
-podTemplate(label: label, cloud: 'kubernetes', inheritFrom: 'default', containers: [
+podTemplate(cloud: 'kubernetes', inheritFrom: 'default', containers: [
             containerTemplate(name: 'maven', image: 'maven:3.6.0-jdk-8', command: 'cat', ttyEnabled: true),
             containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true),
             containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:v2.14.0', command: 'cat', ttyEnabled: true, envVars: [
@@ -30,8 +28,10 @@ podTemplate(label: label, cloud: 'kubernetes', inheritFrom: 'default', container
             ]
 
 ) {
-
-    node(label) {
+    
+    // POD_LABEL是kubernetes插件1.17.0版本之后的一个新特性
+    // 将会根据流水线名称和构建序号自动生成
+    node(POD_LABEL) {
 
         def gitCommit
         def shortGitCommit
