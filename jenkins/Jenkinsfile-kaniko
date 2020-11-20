@@ -1,0 +1,82 @@
+#!/usr/bin/env groovy
+
+def projectProperties = [
+        [$class: 'BuildDiscarderProperty', strategy: [$class: 'LogRotator', numToKeepStr: '5']],
+        parameters([
+            string(name: 'DOCKER_USER', defaultValue: '', description: 'docker用户名'),
+            string(name: 'DOCKER_PASSWORD', defaultValue: '', description: 'docker用户密码'),
+            string(name: 'REGISTRY_URL', defaultValue: 'docker.io', description: 'docker仓库地址'),
+            string(name: 'DOCKER_PROJECT', defaultValue: 'lusyoe', description: 'docker仓库项目')
+        ])
+]
+
+properties(projectProperties)
+
+podTemplate(cloud: 'kubernetes', containers: [
+            containerTemplate(name: 'maven', image: 'maven:3.6.0-jdk-8', command: 'cat', ttyEnabled: true),
+            containerTemplate(name: 'kaniko', image: 'lusyoe/kaniko-executor:v1.3.0', command: 'cat', ttyEnabled: true),
+            containerTemplate(name: 'helm', image: 'lusyoe/helm:v3.2.2', command: 'cat', ttyEnabled: true, envVars: [
+                envVar(key: 'KUBECONFIG', value: '/root/.kube/config')])
+	    ],
+            volumes: [
+                    hostPathVolume(hostPath: '/root/.kube', mountPath: '/root/.kube'),
+                    hostPathVolume(hostPath: '/root/.m2', mountPath: '/root/.m2'),
+                    // 先本地docker login成功, 然后执行命令创建secret：
+                    // kubectl create secret generic docker-config --from-file=${HOME}/.docker/config.json
+                    secretVolume(secretName: 'docker-config', mountPath: '/kaniko/.docker')
+            ],
+            annotations: [
+                    podAnnotation(key: "sidecar.istio.io/inject", value: "false")
+            ]
+
+) {
+
+    node(POD_LABEL) {
+
+        def gitCommit
+        def shortGitCommit
+        def previousGitCommit
+
+        container('maven') {
+
+            stage('checkout') {
+                checkout scm
+
+                sh 'printenv'
+
+                gitCommit = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+                shortGitCommit = "${gitCommit[0..10]}"
+                previousGitCommit = sh(script: "git rev-parse ${gitCommit}~", returnStdout: true)
+
+                echo "gitCommit = ${gitCommit}"
+                echo "shortGitCommit = ${shortGitCommit}"
+                echo "previousGitCommit = ${previousGitCommit}"
+            }
+
+            stage('pacakge') {
+
+                sh 'mvn clean package -Dmaven.test.skip=true -s ./settings.xml'
+            }
+        }
+
+        container('kaniko') {
+            stage('image-build') {
+                 sh "/kaniko/executor -f `pwd`/Dockerfile -c `pwd` --insecure --skip-tls-verify --cache=true --destination=${params.REGISTRY_URL}/${DOCKER_PROJECT}/k8s-example:${shortGitCommit}"
+            }
+        }
+
+
+        container('helm') {
+            stage('helm deploy') {
+                sh label: "replace config", script: """
+                  sed -i s#lusyoe/k8s-example#${params.REGISTRY_URL}/${DOCKER_PROJECT}/k8s-example:${shortGitCommit}#g charts/values.yaml
+                """
+                
+                sh "helm upgrade --install k8s-example charts/ --kubeconfig=/root/.kube/config"
+            }
+        }
+
+    }
+}
+
+// vim: ft=groovy
