@@ -11,4 +11,9 @@ public class HelloController {
     public String sayHello() {
         return "Hello, World";
     }
+
+    @GetMapping("/error")
+    public void sayError() {
+        System.out.println(1/0);
+    }
 }
